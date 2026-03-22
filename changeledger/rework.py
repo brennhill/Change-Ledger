@@ -276,13 +276,14 @@ def detect_rework(commits: list[dict], window_days: int) -> list[dict]:
                     consumed_as_fix.add(j)
                     continue
 
-        # Classify
+        # Classify — rework takes priority over fix status.
+        # A commit that fixes one thing but gets reverted itself is rework.
         if age < window:
             status = "pending"
-        elif i in consumed_as_fix:
-            status = "fix"  # This commit was a fix for something else
         elif rework_signals:
             status = "rework"
+        elif i in consumed_as_fix:
+            status = "fix"
         else:
             status = "accepted"
 

@@ -123,16 +123,13 @@ def cmd_full(args):
         data = interactive()
 
     # Override with real rework data
-    accepted, rework, pending = summarize_rework(rework_results)
-    data["merged_prs"] = accepted + rework
-    data["reverted_prs"] = rework
+    # Fix commits count toward rework — they represent follow-up cost
+    accepted, rework, fix, pending = summarize_rework(rework_results)
+    data["merged_prs"] = accepted + rework + fix
+    data["reverted_prs"] = rework + fix
 
-    if pending > 0:
-        print(
-            f"  Note: {pending} pending change(s) excluded from denominator "
-            f"(< observation window). Their cost is still in the numerator.",
-            flush=True,
-        )
+    from .cost import _print_pending_note
+    _print_pending_note(pending)
 
     results = calculate(data)
     print_results(results)

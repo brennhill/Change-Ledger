@@ -19,6 +19,18 @@ from typing import Any
 REWORK_RATE_THRESHOLD = 15  # % — flag above this
 LARGE_PR_FILES = 20  # files — proxy for 400+ lines when line count unavailable
 
+# ── Required input fields ────────────────────────────────────────────
+
+REQUIRED_FIELDS = [
+    "model_cost", "infra_cost", "prompting_hours", "review_hours",
+    "rework_hours", "burdened_rate", "merged_prs", "reverted_prs",
+]
+
+NON_NEGATIVE_FIELDS = [
+    "model_cost", "infra_cost", "prompting_hours", "review_hours",
+    "rework_hours", "burdened_rate", "merged_prs", "reverted_prs",
+]
+
 
 class ChangeledgerError(Exception):
     """Raised when inputs are invalid."""
@@ -37,17 +49,48 @@ def resolve_currency(data: dict) -> str:
     """Resolve currency symbol from input data.
 
     Accepts either a symbol directly ("€") or an ISO code ("EUR").
-    Defaults to "$" if not specified.
+    Defaults to "$" if not specified. Rejects non-alphanumeric input
+    to prevent injection via downstream consumers.
     """
-    raw = data.get("currency", "USD")
-    return CURRENCY_SYMBOLS.get(raw.upper(), raw)
+    raw = data.get("currency") or "USD"
+    sym = CURRENCY_SYMBOLS.get(raw.upper())
+    if sym is not None:
+        return sym
+    # Allow short alphabetic strings as custom symbols (e.g., "R" for ZAR)
+    if len(raw) <= 4 and raw.isalpha():
+        return raw + " "
+    return "$"
+
+
+def validate_inputs(data: dict) -> None:
+    """Validate required fields and value constraints.
+
+    Raises ChangeledgerError with actionable message listing all problems.
+    """
+    errors = []
+
+    missing = [f for f in REQUIRED_FIELDS if f not in data]
+    if missing:
+        errors.append(f"Missing required fields: {', '.join(missing)}")
+
+    for field in NON_NEGATIVE_FIELDS:
+        if field in data and data[field] < 0:
+            errors.append(f"'{field}' must be non-negative (got {data[field]})")
+
+    if errors:
+        raise ChangeledgerError(
+            "Invalid input:\n  " + "\n  ".join(errors)
+            + "\n\nSee costs-example.json for the expected format."
+        )
 
 
 def calculate(data: dict) -> dict:
     """Calculate cost per accepted change from input data.
 
-    Raises ChangeledgerError if accepted changes <= 0.
+    Raises ChangeledgerError if inputs are invalid or accepted changes <= 0.
     """
+    validate_inputs(data)
+
     prompting_cost = data["prompting_hours"] * data["burdened_rate"]
     review_cost = data["review_hours"] * data["burdened_rate"]
     rework_cost = data["rework_hours"] * data["burdened_rate"]
@@ -110,8 +153,14 @@ def interactive() -> dict:
     print()
 
     def ask(prompt, default=0):
-        val = input(f"  {prompt} [{default}]: ").strip()
-        return float(val) if val else default
+        while True:
+            val = input(f"  {prompt} [{default}]: ").strip()
+            if not val:
+                return float(default)
+            try:
+                return float(val)
+            except ValueError:
+                print("    Not a number. Try again.")
 
     currency = input("  Currency symbol or ISO code [$]: ").strip() or "$"
 
@@ -162,12 +211,18 @@ def print_results(r: dict):
     print()
 
 
-def summarize_rework(rework_results: list[dict]) -> tuple[int, int, int]:
-    """Count accepted, rework, and pending from rework results."""
+def summarize_rework(rework_results: list[dict]) -> tuple[int, int, int, int]:
+    """Count accepted, rework, fix, and pending from rework results.
+
+    Fix commits are counted as rework for cost purposes — the original
+    change required a follow-up, so both the original and the fix
+    consumed engineering time that should be attributed to rework.
+    """
     accepted = sum(1 for r in rework_results if r["status"] == "accepted")
     rework = sum(1 for r in rework_results if r["status"] == "rework")
+    fix = sum(1 for r in rework_results if r["status"] == "fix")
     pending = sum(1 for r in rework_results if r["status"] == "pending")
-    return accepted, rework, pending
+    return accepted, rework, fix, pending
 
 
 def load_rework_data(rework_json_path: str, data: dict) -> tuple[dict, list]:
@@ -175,19 +230,25 @@ def load_rework_data(rework_json_path: str, data: dict) -> tuple[dict, list]:
     from pathlib import Path
     rework_results = json.loads(Path(rework_json_path).read_text(encoding="utf-8"))
 
-    accepted, rework, pending = summarize_rework(rework_results)
-    total = accepted + rework
+    accepted, rework, fix, pending = summarize_rework(rework_results)
+    # Fix commits count toward rework — they represent follow-up cost
+    total = accepted + rework + fix
 
+    _print_pending_note(pending)
+
+    data["merged_prs"] = total
+    data["reverted_prs"] = rework + fix
+    return data, rework_results
+
+
+def _print_pending_note(pending: int) -> None:
+    """Print a note about excluded pending changes."""
     if pending > 0:
         print(
             f"  Note: {pending} pending change(s) excluded from denominator "
             f"(< observation window). Their cost is still in the numerator.",
             flush=True,
         )
-
-    data["merged_prs"] = total
-    data["reverted_prs"] = rework
-    return data, rework_results
 
 
 def generate_warnings(r: dict, rework_items: list | None = None) -> list[dict[str, Any]]:
@@ -209,7 +270,7 @@ def generate_warnings(r: dict, rework_items: list | None = None) -> list[dict[st
             item for item in rework_items
             if item.get("files_changed", 0) > LARGE_PR_FILES
         ]
-        reworked = [item for item in rework_items if item["status"] == "rework"]
+        reworked = [item for item in rework_items if item["status"] in ("rework", "fix")]
 
         if oversized:
             warnings.append({
@@ -222,8 +283,8 @@ def generate_warnings(r: dict, rework_items: list | None = None) -> list[dict[st
         if reworked:
             warnings.append({
                 "level": "high",
-                "title": f"{len(reworked)} changes required rework",
-                "detail": "These changes were reverted or patched within 14 days.",
+                "title": f"{len(reworked)} changes required rework or follow-up fixes",
+                "detail": "These changes were reverted, patched, or required fix commits within 14 days.",
                 "structured_items": reworked[:10],
             })
 
