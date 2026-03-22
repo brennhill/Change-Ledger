@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "changeledger"
+version = "0.1.0"
+description = "Cost per accepted change — the delivery metric no commercial tool computes"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Brenn Hill", email = "brennhill@gmail.com" },
+]
+keywords = [
+    "devops", "metrics", "software-delivery", "engineering-leadership",
+    "dora", "cost-per-change", "rework-detection", "verification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.scripts]
+changeledger = "changeledger.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/brennhill/change-ledger"
+Repository = "https://github.com/brennhill/change-ledger"

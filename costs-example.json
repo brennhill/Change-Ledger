@@ -1,0 +1,10 @@
+{
+    "model_cost": 4200,
+    "infra_cost": 1800,
+    "prompting_hours": 30,
+    "review_hours": 40,
+    "rework_hours": 20,
+    "burdened_rate": 120,
+    "merged_prs": 88,
+    "reverted_prs": 12
+}
