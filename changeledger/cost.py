@@ -9,8 +9,10 @@ branded HTML report including SVG pie charts and rework warnings.
 """
 
 import json
+import math
 import re
 import subprocess
+from numbers import Real
 from typing import Any
 
 
@@ -31,6 +33,9 @@ NON_NEGATIVE_FIELDS = [
     "rework_hours", "burdened_rate", "merged_prs", "reverted_prs",
 ]
 
+REWORK_REQUIRED_FIELDS = ["sha", "subject", "status", "signals"]
+VALID_REWORK_STATUSES = {"accepted", "rework", "fix", "pending"}
+
 
 class ChangeledgerError(Exception):
     """Raised when inputs are invalid."""
@@ -49,16 +54,26 @@ def resolve_currency(data: dict) -> str:
     """Resolve currency symbol from input data.
 
     Accepts either a symbol directly ("€") or an ISO code ("EUR").
-    Defaults to "$" if not specified. Rejects non-alphanumeric input
-    to prevent injection via downstream consumers.
+    Defaults to "$" if not specified. Short custom tokens such as
+    "R$", "A$", or "kr" are preserved for display.
     """
-    raw = data.get("currency") or "USD"
+    raw_value = data.get("currency")
+    raw = str(raw_value).strip() if raw_value is not None else "USD"
+    if not raw:
+        raw = "USD"
+
     sym = CURRENCY_SYMBOLS.get(raw.upper())
     if sym is not None:
         return sym
-    # Allow short alphabetic strings as custom symbols (e.g., "R" for ZAR)
-    if len(raw) <= 4 and raw.isalpha():
-        return raw + " "
+
+    # Preserve short user-supplied display tokens while rejecting obvious
+    # markup/control characters. HTML output is escaped separately.
+    if (
+        len(raw) <= 4
+        and raw.isprintable()
+        and not any(ch.isspace() or ch in "<>&\"'" for ch in raw)
+    ):
+        return raw if not raw.isalpha() else raw + " "
     return "$"
 
 
@@ -74,8 +89,20 @@ def validate_inputs(data: dict) -> None:
         errors.append(f"Missing required fields: {', '.join(missing)}")
 
     for field in NON_NEGATIVE_FIELDS:
-        if field in data and data[field] < 0:
-            errors.append(f"'{field}' must be non-negative (got {data[field]})")
+        if field not in data:
+            continue
+
+        value = data[field]
+        if isinstance(value, bool) or not isinstance(value, Real):
+            errors.append(f"'{field}' must be a number (got {type(value).__name__})")
+            continue
+
+        if not math.isfinite(value):
+            errors.append(f"'{field}' must be a finite number (got {value})")
+            continue
+
+        if value < 0:
+            errors.append(f"'{field}' must be non-negative (got {value})")
 
     if errors:
         raise ChangeledgerError(
@@ -225,10 +252,51 @@ def summarize_rework(rework_results: list[dict]) -> tuple[int, int, int, int]:
     return accepted, rework, fix, pending
 
 
+def validate_rework_results(rework_results: Any) -> None:
+    """Validate rework JSON loaded from `changeledger rework --json`."""
+    if not isinstance(rework_results, list):
+        raise ChangeledgerError(
+            "Invalid rework data:\n  Expected a JSON array of rework result objects."
+        )
+
+    errors = []
+    for idx, item in enumerate(rework_results, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"Item {idx} must be an object (got {type(item).__name__})")
+            continue
+
+        missing = [field for field in REWORK_REQUIRED_FIELDS if field not in item]
+        if missing:
+            errors.append(f"Item {idx} missing required fields: {', '.join(missing)}")
+            continue
+
+        if item["status"] not in VALID_REWORK_STATUSES:
+            errors.append(
+                f"Item {idx} has invalid status '{item['status']}' "
+                f"(expected one of: {', '.join(sorted(VALID_REWORK_STATUSES))})"
+            )
+
+        if not isinstance(item["sha"], str) or not item["sha"]:
+            errors.append(f"Item {idx} has invalid sha (expected non-empty string)")
+
+        if not isinstance(item["subject"], str):
+            errors.append(f"Item {idx} has invalid subject (expected string)")
+
+        if not isinstance(item["signals"], list):
+            errors.append(f"Item {idx} has invalid signals (expected array)")
+
+    if errors:
+        raise ChangeledgerError(
+            "Invalid rework data:\n  " + "\n  ".join(errors)
+            + "\n\nUse the JSON emitted by `changeledger rework --json`."
+        )
+
+
 def load_rework_data(rework_json_path: str, data: dict) -> tuple[dict, list]:
     """Override merged_prs and reverted_prs from rework detector output."""
     from pathlib import Path
     rework_results = json.loads(Path(rework_json_path).read_text(encoding="utf-8"))
+    validate_rework_results(rework_results)
 
     accepted, rework, fix, pending = summarize_rework(rework_results)
     # Fix commits count toward rework — they represent follow-up cost

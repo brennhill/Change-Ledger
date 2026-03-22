@@ -217,7 +217,7 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
   </div>
   <div class="metric-card">
     <div class="value">{r["reverted_prs"]}</div>
-    <div class="label">Reverted / hotfixed</div>
+    <div class="label">Reverted / fixed</div>
   </div>
 </div>
 

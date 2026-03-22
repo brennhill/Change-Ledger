@@ -115,7 +115,7 @@ def get_merges_local(lookback_days: int) -> list[dict]:
     result = subprocess.run(
         [
             "git", "log", "--first-parent", f"--since={since}",
-            "--format=%x00%H|%aI|%s|%b", "--name-only",
+            "--format=%x1e%H%x1f%aI%x1f%s%x1f%b%x1f", "--name-only", "-z",
         ],
         capture_output=True, text=True, check=False,
     )
@@ -123,27 +123,24 @@ def get_merges_local(lookback_days: int) -> list[dict]:
         raise ChangeledgerError(f"git log failed: {result.stderr.strip()}")
 
     commits = []
-    # Split on null byte to separate commits. Each chunk has the format line
-    # followed by file names (from --name-only).
-    for chunk in result.stdout.split("\x00"):
-        chunk = chunk.strip()
+    # Record separator (\x1e) separates commits. Unit separator (\x1f)
+    # separates commit metadata from the free-form subject/body text.
+    for chunk in result.stdout.split("\x1e"):
+        chunk = chunk.strip("\x00\n")
         if not chunk:
             continue
 
-        lines = chunk.split("\n")
-        header = lines[0]
-        parts = header.split("|", 3)
-        if len(parts) < 3:
+        parts = chunk.split("\x1f", 4)
+        if len(parts) < 5:
             continue
 
-        sha = parts[0]
-        date_str = parts[1]
-        subject = parts[2]
-        body = parts[3] if len(parts) > 3 else ""
+        sha, date_str, subject, body, files_blob = parts
         message = f"{subject}\n{body}".strip()
 
-        # Remaining lines are file names from --name-only
-        files = {line.strip() for line in lines[1:] if line.strip()}
+        files = {
+            path for path in files_blob.lstrip("\x00\n").split("\x00")
+            if path
+        }
 
         commits.append({
             "sha": sha,
@@ -180,6 +177,11 @@ def get_merges_github(repo: str, lookback_days: int) -> list[dict]:
         raise ChangeledgerError(f"gh pr list failed: {result.stderr.strip()}")
 
     prs = json.loads(result.stdout)
+    if len(prs) == 500:
+        raise ChangeledgerError(
+            "gh pr list reached the 500 PR limit for this lookback window. "
+            "Narrow the lookback or add pagination before trusting this result."
+        )
     commits = []
 
     for pr in prs:
@@ -319,9 +321,9 @@ def print_report(results: list[dict], window_days: int):
     print(f"  Pending:   {len(pending)} (< {window_days} days old)")
     print()
 
-    total_classifiable = len(accepted) + len(rework)
+    total_classifiable = len(accepted) + len(rework) + len(fixes)
     if total_classifiable > 0:
-        rate = len(rework) / total_classifiable * 100
+        rate = (len(rework) + len(fixes)) / total_classifiable * 100
         print(f"  Rework rate: {rate:.1f}%")
     else:
         print("  Rework rate: N/A (no changes old enough to classify)")

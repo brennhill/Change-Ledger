@@ -28,6 +28,17 @@ from .report import generate_html
 
 # ── Shared helpers ───────────────────────────────────────────────────
 
+def positive_int_arg(name: str):
+    """argparse type for positive integer options."""
+    def parser(value: str) -> int:
+        parsed = int(value)
+        if parsed <= 0:
+            raise argparse.ArgumentTypeError(f"{name} must be > 0")
+        return parsed
+
+    return parser
+
+
 def _run_rework_scan(args) -> list[dict]:
     """Shared rework scan logic for cmd_rework and cmd_full."""
     print(f"Scanning {'GitHub ' + args.repo if args.repo else 'local repo'}...")
@@ -160,8 +171,8 @@ def main():
     # rework subcommand
     p_rework = subparsers.add_parser("rework", help="Detect rework from git history")
     p_rework.add_argument("--repo", help="GitHub repo (owner/repo). Omit for local git.")
-    p_rework.add_argument("--window", type=int, default=14, help="Observation window in days (default: 14)")
-    p_rework.add_argument("--lookback", type=int, default=45, help="How far back to scan (default: 45 days)")
+    p_rework.add_argument("--window", type=positive_int_arg("window"), default=14, help="Observation window in days (default: 14)")
+    p_rework.add_argument("--lookback", type=positive_int_arg("lookback"), default=45, help="How far back to scan (default: 45 days)")
     p_rework.add_argument("--json", help="Write results to JSON file")
     p_rework.add_argument("--csv", help="Write results to CSV file")
     p_rework.set_defaults(func=cmd_rework)
@@ -169,8 +180,8 @@ def main():
     # full subcommand
     p_full = subparsers.add_parser("full", help="Rework detection + cost calculation in one pass")
     p_full.add_argument("--repo", help="GitHub repo (owner/repo). Omit for local git.")
-    p_full.add_argument("--window", type=int, default=14, help="Observation window in days (default: 14)")
-    p_full.add_argument("--lookback", type=int, default=45, help="How far back to scan (default: 45 days)")
+    p_full.add_argument("--window", type=positive_int_arg("window"), default=14, help="Observation window in days (default: 14)")
+    p_full.add_argument("--lookback", type=positive_int_arg("lookback"), default=45, help="How far back to scan (default: 45 days)")
     p_full.add_argument("--json", help="Read cost inputs from JSON file")
     p_full.add_argument("--html", help="Generate branded HTML report")
     p_full.add_argument("--team", default=None, help="Team name for report header")
