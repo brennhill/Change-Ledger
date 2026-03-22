@@ -24,6 +24,25 @@ class ChangeledgerError(Exception):
     """Raised when inputs are invalid."""
 
 
+CURRENCY_SYMBOLS = {
+    "USD": "$", "EUR": "€", "GBP": "£", "CHF": "CHF ",
+    "JPY": "¥", "CNY": "¥", "INR": "₹", "BRL": "R$",
+    "KRW": "₩", "SEK": "kr ", "NOK": "kr ", "DKK": "kr ",
+    "PLN": "zł ", "CZK": "Kč ", "ILS": "₪", "TRY": "₺",
+    "AUD": "A$", "CAD": "C$", "SGD": "S$", "HKD": "HK$",
+}
+
+
+def resolve_currency(data: dict) -> str:
+    """Resolve currency symbol from input data.
+
+    Accepts either a symbol directly ("€") or an ISO code ("EUR").
+    Defaults to "$" if not specified.
+    """
+    raw = data.get("currency", "USD")
+    return CURRENCY_SYMBOLS.get(raw.upper(), raw)
+
+
 def calculate(data: dict) -> dict:
     """Calculate cost per accepted change from input data.
 
@@ -69,6 +88,7 @@ def calculate(data: dict) -> dict:
         }
 
     return {
+        "currency": resolve_currency(data),
         "model_cost": data["model_cost"],
         "infra_cost": data["infra_cost"],
         "prompting_cost": prompting_cost,
@@ -93,13 +113,18 @@ def interactive() -> dict:
         val = input(f"  {prompt} [{default}]: ").strip()
         return float(val) if val else default
 
+    currency = input("  Currency symbol or ISO code [$]: ").strip() or "$"
+
+    sym = CURRENCY_SYMBOLS.get(currency.upper(), currency)
+
     return {
-        "model_cost": ask("AI model/API spend this period ($)", 4200),
-        "infra_cost": ask("Infrastructure cost ($)", 1800),
+        "currency": currency,
+        "model_cost": ask(f"AI model/API spend this period ({sym})", 4200),
+        "infra_cost": ask(f"Infrastructure cost ({sym})", 1800),
         "prompting_hours": ask("Human engineering hours (discussion, specs, prompting)", 30),
         "review_hours": ask("Hours spent reviewing AI output", 40),
         "rework_hours": ask("Hours spent on rework/fixes", 20),
-        "burdened_rate": ask("Fully burdened hourly rate ($)", 120),
+        "burdened_rate": ask(f"Fully burdened hourly rate ({sym})", 120),
         "merged_prs": ask("Merged PRs this period", 88),
         "reverted_prs": ask("Reverted/hotfixed PRs within 14 days", 12),
     }
@@ -107,26 +132,27 @@ def interactive() -> dict:
 
 def print_results(r: dict):
     """Print cost breakdown to stdout."""
+    c = r.get("currency", "$")
     print()
     print("=" * 50)
     print(" COST PER ACCEPTED CHANGE BREAKDOWN")
     print("=" * 50)
     print()
-    print(f"  Model/API cost:      ${r['model_cost']:>10,.0f}  ({r['breakdown']['model_pct']}%)")
-    print(f"  Infrastructure:      ${r['infra_cost']:>10,.0f}  ({r['breakdown']['infra_pct']}%)")
-    print(f"  Human engineering:   ${r['prompting_cost']:>10,.0f}  ({r['breakdown']['prompting_pct']}%)")
-    print(f"  Human review:        ${r['review_cost']:>10,.0f}  ({r['breakdown']['review_pct']}%)")
-    print(f"  Rework:              ${r['rework_cost']:>10,.0f}  ({r['breakdown']['rework_pct']}%)")
+    print(f"  Model/API cost:      {c}{r['model_cost']:>10,.0f}  ({r['breakdown']['model_pct']}%)")
+    print(f"  Infrastructure:      {c}{r['infra_cost']:>10,.0f}  ({r['breakdown']['infra_pct']}%)")
+    print(f"  Human engineering:   {c}{r['prompting_cost']:>10,.0f}  ({r['breakdown']['prompting_pct']}%)")
+    print(f"  Human review:        {c}{r['review_cost']:>10,.0f}  ({r['breakdown']['review_pct']}%)")
+    print(f"  Rework:              {c}{r['rework_cost']:>10,.0f}  ({r['breakdown']['rework_pct']}%)")
     print(f"  {'─' * 40}")
-    print(f"  Total cost:          ${r['total_cost']:>10,.0f}")
+    print(f"  Total cost:          {c}{r['total_cost']:>10,.0f}")
     print()
     print(f"  Merged PRs:          {r['merged_prs']:>10}")
     print(f"  Reverted/fixed:      {r['reverted_prs']:>10}")
     print(f"  Accepted changes:    {r['accepted_changes']:>10}")
     print()
-    print("  ┌─────────────────────────────────────────┐")
-    print(f"  │  Cost per accepted change: ${r['cost_per_accepted_change']:>10,.2f}  │")
-    print("  └─────────────────────────────────────────┘")
+    print("  ┌──────────────────────────────────────────────┐")
+    print(f"  │  Cost per accepted change: {c}{r['cost_per_accepted_change']:>10,.2f}  │")
+    print("  └──────────────────────────────────────────────┘")
     print()
 
     visible = r["breakdown"]["model_pct"] + r["breakdown"]["infra_pct"]

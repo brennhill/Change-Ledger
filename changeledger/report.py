@@ -145,6 +145,7 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
     date = datetime.now().strftime("%B %d, %Y")
     safe_team = escape(team_name) if team_name else ""
     team_line = f" — {safe_team}" if safe_team else ""
+    c = escape(r.get("currency", "$"))
 
     return f'''<!DOCTYPE html>
 <html lang="en">
@@ -203,7 +204,7 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
 
 <div class="metrics">
   <div class="metric-card highlight">
-    <div class="value">${r["cost_per_accepted_change"]:,.2f}</div>
+    <div class="value">{c}{r["cost_per_accepted_change"]:,.2f}</div>
     <div class="label">Cost per accepted change</div>
   </div>
   <div class="metric-card">
@@ -226,12 +227,12 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
     <table class="breakdown-table">
       <thead><tr><th>Category</th><th>Cost</th><th>Share</th></tr></thead>
       <tbody>
-        <tr><td><span class="color-dot" style="background: #2BA99A"></span>Model / API</td><td>${r["model_cost"]:,.0f}</td><td>{r["breakdown"]["model_pct"]}%</td></tr>
-        <tr><td><span class="color-dot" style="background: #2BA99A; opacity: 0.5"></span>Infrastructure</td><td>${r["infra_cost"]:,.0f}</td><td>{r["breakdown"]["infra_pct"]}%</td></tr>
-        <tr><td><span class="color-dot" style="background: #B06835"></span>Human engineering</td><td>${r["prompting_cost"]:,.0f}</td><td>{r["breakdown"]["prompting_pct"]}%</td></tr>
-        <tr><td><span class="color-dot" style="background: #C9962A"></span>Human review</td><td>${r["review_cost"]:,.0f}</td><td>{r["breakdown"]["review_pct"]}%</td></tr>
-        <tr><td><span class="color-dot" style="background: #1D3557"></span>Rework</td><td>${r["rework_cost"]:,.0f}</td><td>{r["breakdown"]["rework_pct"]}%</td></tr>
-        <tr><td>Total</td><td>${r["total_cost"]:,.0f}</td><td>100%</td></tr>
+        <tr><td><span class="color-dot" style="background: #2BA99A"></span>Model / API</td><td>{c}{r["model_cost"]:,.0f}</td><td>{r["breakdown"]["model_pct"]}%</td></tr>
+        <tr><td><span class="color-dot" style="background: #2BA99A; opacity: 0.5"></span>Infrastructure</td><td>{c}{r["infra_cost"]:,.0f}</td><td>{r["breakdown"]["infra_pct"]}%</td></tr>
+        <tr><td><span class="color-dot" style="background: #B06835"></span>Human engineering</td><td>{c}{r["prompting_cost"]:,.0f}</td><td>{r["breakdown"]["prompting_pct"]}%</td></tr>
+        <tr><td><span class="color-dot" style="background: #C9962A"></span>Human review</td><td>{c}{r["review_cost"]:,.0f}</td><td>{r["breakdown"]["review_pct"]}%</td></tr>
+        <tr><td><span class="color-dot" style="background: #1D3557"></span>Rework</td><td>{c}{r["rework_cost"]:,.0f}</td><td>{r["breakdown"]["rework_pct"]}%</td></tr>
+        <tr><td>Total</td><td>{c}{r["total_cost"]:,.0f}</td><td>100%</td></tr>
       </tbody>
     </table>
   </div>
