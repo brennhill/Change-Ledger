@@ -1,10 +1,13 @@
 """
 HTML report generation with SVG pie charts.
+
+All user-derived strings are HTML-escaped before interpolation.
 """
 
 import math
 import re
 from datetime import datetime
+from html import escape
 
 
 def polar_to_cart(cx, cy, r, angle_deg):
@@ -33,18 +36,18 @@ def generate_svg(r: dict) -> str:
     font = "'Avenir Next', 'Helvetica Neue', Arial, sans-serif"
 
     slices = [
-        ("Model cost", r["model_cost"], r["breakdown"]["model_pct"], "#2BA99A", 1.0),
-        ("Infrastructure", r["infra_cost"], r["breakdown"]["infra_pct"], "#2BA99A", 0.5),
-        ("Human engineering", r["prompting_cost"], r["breakdown"]["prompting_pct"], "#B06835", 1.0),
-        ("Human review", r["review_cost"], r["breakdown"]["review_pct"], "#C9962A", 1.0),
-        ("Rework", r["rework_cost"], r["breakdown"]["rework_pct"], "#1D3557", 1.0),
+        (r["model_cost"], r["breakdown"]["model_pct"], "#2BA99A", 1.0),
+        (r["infra_cost"], r["breakdown"]["infra_pct"], "#2BA99A", 0.5),
+        (r["prompting_cost"], r["breakdown"]["prompting_pct"], "#B06835", 1.0),
+        (r["review_cost"], r["breakdown"]["review_pct"], "#C9962A", 1.0),
+        (r["rework_cost"], r["breakdown"]["rework_pct"], "#1D3557", 1.0),
     ]
 
     paths = []
     labels = []
     angle = 0
 
-    for name, cost, pct, color, opacity in slices:
+    for _cost, pct, color, opacity in slices:
         sweep = pct / 100 * 360
         if sweep < 1:
             angle += sweep
@@ -66,51 +69,70 @@ def generate_svg(r: dict) -> str:
 </svg>'''
 
 
+def _safe_repo_url(repo_url: str) -> str:
+    """Validate repo_url starts with https:// to prevent javascript: injection."""
+    if repo_url and repo_url.startswith("https://"):
+        return escape(repo_url, quote=True)
+    return ""
+
+
 def format_signal_html(signal: str, repo_url: str = "") -> str:
+    safe_url = _safe_repo_url(repo_url)
     m = re.match(r"(Reverted by|Fixes: trailer in|Same ticket .+ fixed by|Fix) (\w{10})(.*)", signal)
     if m:
-        prefix = m.group(1)
-        fix_sha = m.group(2)
-        rest = m.group(3)
-        sha_html = f'<a href="{repo_url}/commit/{fix_sha}" class="fix-sha">{fix_sha}</a>' if repo_url else f'<span class="fix-sha">{fix_sha}</span>'
-        files_match = re.search(r"touches same source files: (.+)$", rest)
+        prefix = escape(m.group(1))
+        fix_sha = escape(m.group(2))
+        rest = escape(m.group(3))
+        if safe_url:
+            sha_html = f'<a href="{safe_url}/commit/{fix_sha}" class="fix-sha">{fix_sha}</a>'
+        else:
+            sha_html = f'<span class="fix-sha">{fix_sha}</span>'
+        files_match = re.search(r"touches same source files: (.+)$", m.group(3))
         if files_match:
-            files = files_match.group(1)
+            files = escape(files_match.group(1))
             return f'{prefix} {sha_html}<br><span class="file-list">{files}</span>'
         return f'{prefix} {sha_html}{rest}'
-    return signal
+    return escape(signal)
 
 
 def render_warnings(warnings: list, repo_url: str = "") -> str:
     if not warnings:
         return ""
+    safe_url = _safe_repo_url(repo_url)
     cards = []
     for w in warnings:
         items_html = ""
         if w.get("structured_items"):
             item_blocks = []
             for item in w["structured_items"]:
-                sha = item["sha"]
-                sha_link = f'<a href="{repo_url}/commit/{sha}" class="commit-sha">{sha}</a>' if repo_url else f'<span class="commit-sha">{sha}</span>'
+                sha = escape(item["sha"])
+                subject = escape(item["subject"][:60])
+                if safe_url:
+                    sha_link = f'<a href="{safe_url}/commit/{sha}" class="commit-sha">{sha}</a>'
+                else:
+                    sha_link = f'<span class="commit-sha">{sha}</span>'
                 signals_html = "".join(
                     f'<div class="signal">{format_signal_html(s, repo_url)}</div>'
                     for s in item.get("signals", [])
                 )
                 item_blocks.append(
                     f'<div class="warning-item">'
-                    f'<div class="commit-header">{sha_link} <span class="commit-subject">— {item["subject"][:60]}</span></div>'
+                    f'<div class="commit-header">{sha_link} <span class="commit-subject">— {subject}</span></div>'
                     f'{signals_html}'
                     f'</div>'
                 )
             items_html = f'<div class="warning-items">{"".join(item_blocks)}</div>'
         elif w.get("items"):
-            item_blocks = [f'<div class="warning-item"><div class="commit-header">{t}</div></div>' for t in w["items"]]
+            item_blocks = [
+                f'<div class="warning-item"><div class="commit-header">{escape(str(t))}</div></div>'
+                for t in w["items"]
+            ]
             items_html = f'<div class="warning-items">{"".join(item_blocks)}</div>'
 
         cards.append(
-            f'<div class="warning-card {w["level"]}">'
-            f'<div class="warning-title">{w["title"]}</div>'
-            f'<div class="warning-detail">{w["detail"]}</div>'
+            f'<div class="warning-card {escape(w["level"])}">'
+            f'<div class="warning-title">{escape(w["title"])}</div>'
+            f'<div class="warning-detail">{escape(w["detail"])}</div>'
             f'{items_html}'
             f'</div>'
         )
@@ -121,7 +143,8 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
     svg = generate_svg(r)
     warnings = warnings or []
     date = datetime.now().strftime("%B %d, %Y")
-    team_line = f" — {team_name}" if team_name else ""
+    safe_team = escape(team_name) if team_name else ""
+    team_line = f" — {safe_team}" if safe_team else ""
 
     return f'''<!DOCTYPE html>
 <html lang="en">
