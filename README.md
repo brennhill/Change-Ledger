@@ -61,6 +61,126 @@ cost per accepted change = (model + infra + human engineering + review + rework)
 
 When using `changeledger full` or `--from-rework`, the `merged_prs` and `reverted_prs` fields are overridden with real data from git history.
 
+## Where to Get Your Numbers
+
+The hardest part isn't running the tool — it's getting honest inputs. Here's where to find each one.
+
+### `model_cost` — AI model and API spend
+
+This is the easiest number because vendors invoice you for it.
+
+| Source | Where to find it |
+|--------|-----------------|
+| **OpenAI** | platform.openai.com → Usage → export by date range |
+| **Anthropic** | console.anthropic.com → Usage → billing period total |
+| **GitHub Copilot** | $19-39/seat/month × seats. GitHub billing page. |
+| **Cursor** | Per-seat subscription cost from your billing page |
+| **AWS Bedrock** | Cost Explorer → filter by Bedrock service |
+| **Google Vertex AI** | Cloud billing → filter by Vertex AI |
+
+For per-session tracking, tools like [Stripe's token-meter](https://github.com/stripe/terminal-apps), LangSmith, Langfuse, or AgentOps can attribute costs to individual tasks or agent runs.
+
+**Tip:** If you use multiple AI tools, sum them. If you're not sure, start with the invoice total for the period. Precision matters less than having the number at all — most teams have never computed this.
+
+### `infra_cost` — CI/CD and infrastructure
+
+The compute cost of running your pipeline — not your production infrastructure, just what it costs to build, test, and deploy changes.
+
+| Source | Where to find it |
+|--------|-----------------|
+| **GitHub Actions** | Settings → Billing → Actions minutes × per-minute rate |
+| **CircleCI** | Plan usage page → compute credits used |
+| **GitLab CI** | CI/CD minutes from admin panel |
+| **Jenkins/self-hosted** | Rough estimate: (instance cost × % time running CI) |
+| **Cloud build** | AWS CodeBuild, GCP Cloud Build → billing console |
+
+If you can't isolate CI cost, estimate 5-15% of your total cloud bill as a starting point.
+
+### `prompting_hours` — Human engineering time
+
+This is the trickiest number because it's invisible. It includes every hour a human spends *before and around* the AI-generated code:
+
+- Whiteboarding and design discussions
+- Writing specs and acceptance criteria
+- Crafting prompts and context for AI tools
+- Debugging AI output that looked right but wasn't
+- Context-switching between AI sessions
+
+**How to estimate it:**
+
+- **Quick method:** (number of engineers on the team) × (hours per week on AI-assisted work) × (weeks in period). Be honest — include the time spent re-reading AI output, not just typing prompts.
+- **Better method:** Ask 3-5 engineers to track their time for one week. Multiply by team size and period length.
+- **Decision: include meetings?** If the meetings are about AI-assisted work (design reviews, spec discussions, prompt strategy), yes. If they're general standups, no.
+
+### `review_hours` — Time spent reviewing AI output
+
+Time humans spend reading, commenting on, and approving AI-generated or AI-assisted changes.
+
+| Source | Where to find it |
+|--------|-----------------|
+| **GitHub** | Average review time per PR from your analytics tool (LinearB, Swarmia, etc.) × number of reviewed PRs |
+| **Manual estimate** | (PRs reviewed per week) × (avg minutes per review / 60) × (weeks in period) |
+
+No tool measures actual *active review minutes* (as opposed to wall-clock time from request to approval). If you use LinearB or Swarmia, their "review time" is elapsed time — actual review effort is typically 30-50% of that.
+
+### `rework_hours` — Time spent fixing mistakes
+
+Time humans spend on reverts, hotfixes, and patches to changes that already merged.
+
+**Best approach:** Let changeledger detect rework from git history (`changeledger rework`), then estimate hours per rework incident:
+
+```bash
+# Get the rework count
+changeledger rework --repo owner/repo --json rework.json
+
+# Then estimate: (rework incidents) × (avg hours per fix)
+# A typical hotfix takes 2-8 hours including investigation, fix, review, and deploy
+```
+
+### `burdened_rate` — Fully loaded hourly cost per engineer
+
+This is salary + benefits + taxes + equipment + office space, divided by working hours per year. Your finance team knows this number. If they won't share it:
+
+| Region | Rough range (2025-2026) |
+|--------|------------------------|
+| US (SF/NYC) | $120-180/hr |
+| US (other) | $80-130/hr |
+| Western Europe | $80-140/hr |
+| Eastern Europe | $40-80/hr |
+| India | $20-50/hr |
+
+If you're unsure, $120/hr is a reasonable default for a US-based team.
+
+### `merged_prs` and `reverted_prs` — Change counts
+
+**Best approach:** Let changeledger compute these from git history:
+
+```bash
+changeledger full --repo owner/repo --json costs.json
+```
+
+This overrides both fields with real data — merged PRs from the lookback period and rework detected within the observation window.
+
+**Manual approach:** GitHub Insights → Pull Requests → Merged. For reverts, search your repo for `revert` or `hotfix` in commit messages within the period.
+
+### Connecting to Jira / Linear / GitHub Issues
+
+The rework detector already extracts ticket IDs from commit messages (patterns like `PROJ-123`, `#456`, `ENG-789`). It uses these for rework signal #3: "same ticket fixed again within 14 days."
+
+For deeper integration:
+
+- **Jira:** Export the sprint/period's resolved issues. Cross-reference with merged PRs to compute spec coverage (% of PRs with linked tickets). The toolkit's `spec-coverage.py` script does this via the GitHub API.
+- **Linear:** Linear's API exposes issue-to-PR links. Same cross-reference approach.
+- **GitHub Issues:** Already captured via `#123` patterns in commit messages.
+
+Future versions of changeledger may add direct Jira/Linear API integration to pull ticket linkage rates and rework-by-ticket-status. For now, the git-based signals are surprisingly accurate — most rework shows up as reverts, fix commits, or file overlap within the window.
+
+### Starting Point: Don't Wait for Perfect Data
+
+Run `changeledger cost` with rough estimates. The number will be wrong. It will still be more useful than the number you have now, which is zero.
+
+The insight isn't the exact dollar amount — it's the *ratio*. When hidden costs (people) are 3x visible costs (model + infra), that tells you where to invest regardless of whether the total is $200 or $250 per change.
+
 ## Output
 
 ```
