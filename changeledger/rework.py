@@ -113,6 +113,7 @@ def get_merges_local(lookback_days: int) -> list[Commit]:
                 # Fallback: bare filename (shouldn't happen with --numstat)
                 files.add(entry)
 
+        from .signals import extract_pr_number_from_subject
         commits.append(Commit.build(
             sha=sha,
             date=datetime.fromisoformat(date_str),
@@ -120,6 +121,7 @@ def get_merges_local(lookback_days: int) -> list[Commit]:
             body=body,
             files=files,
             lines_changed=total_additions + total_deletions,
+            pr_number=extract_pr_number_from_subject(subject),
         ))
 
     return commits
@@ -269,6 +271,7 @@ def detect_rework(commits: list[Commit], window_days: int) -> list[dict]:  # -> 
         results.append({
             "sha": original.short_sha,
             "full_sha": original.sha,
+            "pr_number": original.pr_number,
             "date": original.date.strftime("%Y-%m-%d"),
             "subject": original.subject[:80],
             "status": status,

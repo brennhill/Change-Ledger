@@ -92,3 +92,25 @@ def is_revert_message(text: str) -> bool:
 def extract_revert_pr_numbers(text: str) -> set[int]:
     """Extract PR numbers from revert messages (e.g., 'Revert #42', 'Reverts #42')."""
     return {int(m.group(1)) for m in REVERT_PR_PATTERN.finditer(text)}
+
+
+# ── PR number extraction from git subjects ───────────────────────────
+
+_MERGE_PR_PATTERN = re.compile(r"^Merge pull request #(\d+)\b")
+_SQUASH_PR_PATTERN = re.compile(r"\(#(\d+)\)\s*$")
+
+
+def extract_pr_number_from_subject(subject: str) -> int | None:
+    """Extract PR number from a local git merge commit subject.
+
+    Handles two common GitHub merge strategies:
+    - Merge commit: "Merge pull request #42 from owner/branch"
+    - Squash merge: "feat: add thing (#42)"
+    """
+    m = _MERGE_PR_PATTERN.search(subject)
+    if m:
+        return int(m.group(1))
+    m = _SQUASH_PR_PATTERN.search(subject)
+    if m:
+        return int(m.group(1))
+    return None

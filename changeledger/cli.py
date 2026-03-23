@@ -102,8 +102,8 @@ def cmd_rework(args):
     if args.csv:
         with Path(args.csv).open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=[
-                "sha", "full_sha", "date", "subject", "status", "age_days",
-                "signals", "ticket_ids", "files_changed",
+                "sha", "full_sha", "pr_number", "date", "subject", "status",
+                "age_days", "signals", "ticket_ids", "files_changed",
                 "lines_changed", "normalized_units",
             ])
             writer.writeheader()

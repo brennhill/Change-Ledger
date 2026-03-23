@@ -102,6 +102,7 @@ class ReworkItem(TypedDict, total=False):
 
     sha: str
     full_sha: str
+    pr_number: int | None
     date: str
     subject: str
     status: str
