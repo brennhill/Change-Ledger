@@ -72,6 +72,20 @@ class Commit:
             pr_number=pr_number,
         )
 
+    @classmethod
+    def from_change(cls, change) -> Commit:
+        """Convert a delivery_gap_signals MergedChange to a Commit."""
+        sha = change.merge_commit_sha or change.id
+        return cls.build(
+            sha=sha,
+            date=change.merged_at,
+            subject=change.title,
+            body=change.body,
+            files=set(change.files),
+            lines_changed=change.additions + change.deletions,
+            pr_number=change.pr_number,
+        )
+
     def sha_in_text(self, text: str) -> bool:
         """Check if this commit's SHA appears in text (7, 10, or 40 char prefix).
 

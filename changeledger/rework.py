@@ -186,6 +186,13 @@ def get_merges_github(repo: str, lookback_days: int) -> list[Commit]:
     return commits
 
 
+def get_merges(changes: list) -> list[Commit]:
+    """Convert a list of MergedChange objects to Commit objects."""
+    from .models import Commit
+
+    return [Commit.from_change(c) for c in changes]
+
+
 # ── Rework detection ─────────────────────────────────────────────────
 
 def detect_rework(commits: list[Commit], window_days: int) -> list[dict]:  # -> list[ReworkItem]
@@ -286,9 +293,15 @@ def detect_rework(commits: list[Commit], window_days: int) -> list[dict]:  # -> 
     return results
 
 
-def scan(repo: str | None, lookback: int, window: int) -> list[dict]:  # -> list[ReworkItem]
-    """Fetch commits and run rework detection. Pure data, no I/O."""
-    if repo:
+def scan(repo: str | None, lookback: int, window: int, *, changes: list | None = None) -> list[dict]:  # -> list[ReworkItem]
+    """Fetch commits and run rework detection. Pure data, no I/O.
+
+    When *changes* (a list of MergedChange objects) is provided, they are
+    converted directly — bypassing local-git and GitHub fetching entirely.
+    """
+    if changes is not None:
+        commits = get_merges(changes)
+    elif repo:
         commits = get_merges_github(repo, lookback)
     else:
         commits = get_merges_local(lookback)
@@ -299,12 +312,15 @@ def scan(repo: str | None, lookback: int, window: int) -> list[dict]:  # -> list
     return detect_rework(commits, window)
 
 
-def run_scan(repo: str | None, lookback: int, window: int) -> list[dict]:
+def run_scan(repo: str | None, lookback: int, window: int, *, changes: list | None = None) -> list[dict]:
     """CLI wrapper: scan + print progress and report."""
-    print(f"Scanning {'GitHub ' + repo if repo else 'local repo'}...")
+    if changes is not None:
+        print(f"Scanning {len(changes)} pre-loaded changes...")
+    else:
+        print(f"Scanning {'GitHub ' + repo if repo else 'local repo'}...")
     print(f"Window: {window} days, lookback: {lookback} days")
 
-    results = scan(repo, lookback, window)
+    results = scan(repo, lookback, window, changes=changes)
 
     if not results:
         print("No commits found in the lookback period.")

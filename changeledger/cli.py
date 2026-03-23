@@ -90,8 +90,18 @@ def cmd_cost(args):
     _maybe_write_html(args, results, rework_items)
 
 
+def _load_changes(args):
+    """Load MergedChange objects from --from-prs if provided."""
+    from_prs = getattr(args, "from_prs", None)
+    if from_prs:
+        from delivery_gap_signals.sources.file import fetch_changes
+        return fetch_changes(from_prs)
+    return None
+
+
 def cmd_rework(args):
-    results = run_scan(args.repo, args.lookback, args.window)
+    changes = _load_changes(args)
+    results = run_scan(args.repo, args.lookback, args.window, changes=changes)
     if not results:
         return
 
@@ -117,7 +127,8 @@ def cmd_rework(args):
 
 def cmd_full(args):
     """Run rework detection + cost calculation in one pass."""
-    rework_results = run_scan(args.repo, args.lookback, args.window)
+    changes = _load_changes(args)
+    rework_results = run_scan(args.repo, args.lookback, args.window, changes=changes)
     if not rework_results:
         print("No commits found; skipping cost calculation.")
         return
@@ -144,7 +155,9 @@ def main():
 
     # Shared option groups (argparse parents)
     rework_opts = argparse.ArgumentParser(add_help=False)
-    rework_opts.add_argument("--repo", help="GitHub repo (owner/repo). Omit for local git.")
+    rework_source = rework_opts.add_mutually_exclusive_group()
+    rework_source.add_argument("--repo", help="GitHub repo (owner/repo). Omit for local git.")
+    rework_source.add_argument("--from-prs", help="Read changes from JSON file (MergedChange format)")
     rework_opts.add_argument("--window", type=positive_int_arg("window"), default=14, help="Observation window in days (default: 14)")
     rework_opts.add_argument("--lookback", type=positive_int_arg("lookback"), default=90, help="How far back to scan (default: 90 days)")
 
