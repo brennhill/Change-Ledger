@@ -36,6 +36,10 @@ changeledger full --json costs.json --html report.html
 
 # Full pipeline from GitHub
 changeledger full --repo owner/repo --json costs.json --html report.html
+
+# From pre-fetched PR data (shared with CatchRate/Upfront)
+changeledger rework --from-prs prs.json
+changeledger full --from-prs prs.json --json costs.json --html report.html
 ```
 
 ## The Formula
@@ -265,6 +269,22 @@ Most teams track the wrong denominator. PR volume, lines of code, and token spen
 When this number is rising, your verification layer is the bottleneck. When the hidden cost (people) dominates the visible cost (model + infra), your AI investment is creating review burden faster than it's creating value.
 
 This is the metric the Verification Triangle framework uses to close the loop between spec quality, eval quality, and delivery economics.
+
+## Ecosystem Integration
+
+changeledger is part of the **delivery-gap** ecosystem alongside [Upfront](https://github.com/delivery-gap/upfront) (spec quality) and [CatchRate](https://github.com/delivery-gap/catchrate) (pipeline trustworthiness). All three tools share signal detection via [delivery-gap-signals](https://github.com/delivery-gap/delivery-gap-signals).
+
+The `--from-prs` flag accepts a pre-fetched JSON file of GitHub PR data. This lets all three tools share a single GitHub API fetch instead of each hitting the API independently:
+
+```bash
+# Fetch once, use everywhere
+delivery-gap-signals fetch --repo owner/repo --out prs.json
+changeledger full --from-prs prs.json --json costs.json --html report.html
+upfront analyze --from-prs prs.json
+catchrate score --from-prs prs.json
+```
+
+Coming soon: `--from-upfront` and `--from-catchrate` will enrich the cost report with spec quality and pipeline trust scores.
 
 ## License
 
