@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="50%" style="stop-color:#1e293b"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22d3ee"/>
+      <stop offset="100%" style="stop-color:#818cf8"/>
+    </linearGradient>
+    <linearGradient id="greenAccent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" fill="url(#bg)" rx="12"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.04" stroke="#94a3b8" stroke-width="0.5">
+    <line x1="0" y1="60" x2="1200" y2="60"/>
+    <line x1="0" y1="120" x2="1200" y2="120"/>
+    <line x1="0" y1="180" x2="1200" y2="180"/>
+    <line x1="0" y1="240" x2="1200" y2="240"/>
+    <line x1="150" y1="0" x2="150" y2="300"/>
+    <line x1="300" y1="0" x2="300" y2="300"/>
+    <line x1="450" y1="0" x2="450" y2="300"/>
+    <line x1="600" y1="0" x2="600" y2="300"/>
+    <line x1="750" y1="0" x2="750" y2="300"/>
+    <line x1="900" y1="0" x2="900" y2="300"/>
+    <line x1="1050" y1="0" x2="1050" y2="300"/>
+  </g>
+
+  <!-- Decorative ledger lines on left -->
+  <g opacity="0.12">
+    <rect x="40" y="55" width="180" height="1" fill="#22d3ee"/>
+    <rect x="40" y="75" width="140" height="1" fill="#22d3ee"/>
+    <rect x="40" y="95" width="160" height="1" fill="#22d3ee"/>
+    <rect x="40" y="115" width="120" height="1" fill="#22d3ee"/>
+    <rect x="40" y="185" width="170" height="1" fill="#818cf8"/>
+    <rect x="40" y="205" width="130" height="1" fill="#818cf8"/>
+    <rect x="40" y="225" width="155" height="1" fill="#818cf8"/>
+    <rect x="40" y="245" width="110" height="1" fill="#818cf8"/>
+  </g>
+
+  <!-- Decorative chart on right side -->
+  <g transform="translate(920, 60)" opacity="0.2" filter="url(#softGlow)">
+    <!-- Bar chart -->
+    <rect x="0" y="120" width="24" height="60" rx="3" fill="#22d3ee"/>
+    <rect x="36" y="90" width="24" height="90" rx="3" fill="#22d3ee"/>
+    <rect x="72" y="105" width="24" height="75" rx="3" fill="#818cf8"/>
+    <rect x="108" y="60" width="24" height="120" rx="3" fill="#818cf8"/>
+    <rect x="144" y="40" width="24" height="140" rx="3" fill="#34d399"/>
+    <rect x="180" y="15" width="24" height="165" rx="3" fill="#34d399"/>
+    <!-- Trend line -->
+    <polyline points="12,115 48,82 84,98 120,52 156,30 192,8"
+              fill="none" stroke="#f0abfc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Dots on trend line -->
+    <circle cx="12" cy="115" r="3" fill="#f0abfc"/>
+    <circle cx="48" cy="82" r="3" fill="#f0abfc"/>
+    <circle cx="84" cy="98" r="3" fill="#f0abfc"/>
+    <circle cx="120" cy="52" r="3" fill="#f0abfc"/>
+    <circle cx="156" cy="30" r="3" fill="#f0abfc"/>
+    <circle cx="192" cy="8" r="3" fill="#f0abfc"/>
+  </g>
+
+  <!-- Dollar sign icon -->
+  <g transform="translate(300, 150)" filter="url(#glow)">
+    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#greenAccent)" stroke-width="2" opacity="0.3"/>
+    <circle cx="0" cy="0" r="36" fill="none" stroke="url(#greenAccent)" stroke-width="1.5" opacity="0.15"/>
+    <text x="0" y="8" text-anchor="middle" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="36" font-weight="700" fill="url(#greenAccent)">$</text>
+  </g>
+
+  <!-- Delta / change symbol -->
+  <g transform="translate(380, 120)" opacity="0.25">
+    <text font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="22" fill="#22d3ee" filter="url(#glow)">&#916;</text>
+  </g>
+
+  <!-- Main title -->
+  <text x="455" y="138" font-family="'Inter','SF Pro Display','Segoe UI',system-ui,sans-serif" font-size="56" font-weight="800" fill="white" letter-spacing="-2">
+    change<tspan fill="url(#accent)">ledger</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="458" y="175" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="15" fill="#94a3b8" letter-spacing="0.5">
+    cost per accepted change
+  </text>
+
+  <!-- Accent line under tagline -->
+  <rect x="458" y="185" width="250" height="2" rx="1" fill="url(#accent)" opacity="0.4"/>
+
+  <!-- Feature pills -->
+  <g transform="translate(458, 210)">
+    <rect x="0" y="0" width="105" height="28" rx="14" fill="#22d3ee" fill-opacity="0.1" stroke="#22d3ee" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="52" y="18" text-anchor="middle" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="11" fill="#22d3ee">rework detect</text>
+
+    <rect x="115" y="0" width="95" height="28" rx="14" fill="#818cf8" fill-opacity="0.1" stroke="#818cf8" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="162" y="18" text-anchor="middle" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="11" fill="#818cf8">cost model</text>
+
+    <rect x="220" y="0" width="105" height="28" rx="14" fill="#34d399" fill-opacity="0.1" stroke="#34d399" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="272" y="18" text-anchor="middle" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="11" fill="#34d399">html reports</text>
+  </g>
+
+  <!-- Bottom accent bar -->
+  <rect x="0" y="296" width="1200" height="4" fill="url(#accent)" opacity="0.6" rx="0"/>
+</svg>

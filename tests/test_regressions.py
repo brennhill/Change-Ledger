@@ -13,23 +13,9 @@ from changeledger.cost import ChangeledgerError, calculate, load_rework_data
 from changeledger.report import generate_html
 from changeledger.rework import get_merges_github, get_merges_local, print_report
 
+from tests.factories import make_cost_inputs
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-def make_cost_inputs(**overrides):
-    data = {
-        "model_cost": 1,
-        "infra_cost": 0,
-        "prompting_hours": 0,
-        "review_hours": 0,
-        "rework_hours": 0,
-        "burdened_rate": 1,
-        "merged_prs": 1,
-        "reverted_prs": 0,
-    }
-    data.update(overrides)
-    return data
 
 
 class CostRegressionTests(unittest.TestCase):
@@ -69,16 +55,17 @@ class ReworkRegressionTests(unittest.TestCase):
             run("git", "add", "f.txt")
             run("git", "commit", "-m", "feature | parsing", "-m", "body line 1\nbody line 2")
 
-            prev = os.getcwd()
-            os.chdir(repo_dir)
-            try:
+            real_run = subprocess.run
+            with mock.patch("changeledger.rework.subprocess.run") as mock_run:
+                def run_in_repo(*args, **kwargs):
+                    kwargs["cwd"] = repo_dir
+                    return real_run(*args, **kwargs)
+                mock_run.side_effect = run_in_repo
                 commits = get_merges_local(lookback_days=30)
-            finally:
-                os.chdir(prev)
 
-        self.assertEqual(commits[0]["subject"], "feature | parsing")
-        self.assertEqual(commits[0]["message"], "feature | parsing\nbody line 1\nbody line 2")
-        self.assertEqual(commits[0]["files"], {"f.txt"})
+        self.assertEqual(commits[0].subject, "feature | parsing")
+        self.assertEqual(commits[0].message, "feature | parsing\nbody line 1\nbody line 2")
+        self.assertEqual(commits[0].files, frozenset({"f.txt"}))
 
     def test_load_rework_data_rejects_invalid_items_with_changeledger_error(self):
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
@@ -110,9 +97,9 @@ class ReworkRegressionTests(unittest.TestCase):
             stderr="",
         )
 
-        with mock.patch("changeledger.rework.subprocess.run", return_value=completed):
-            with self.assertRaises(ChangeledgerError) as ctx:
-                get_merges_github("owner/repo", lookback_days=30)
+        with mock.patch("changeledger.rework.subprocess.run", return_value=completed), \
+                self.assertRaises(ChangeledgerError) as ctx:
+            get_merges_github("owner/repo", lookback_days=30)
 
         self.assertIn("500", str(ctx.exception))
         self.assertIn("lookback", str(ctx.exception).lower())

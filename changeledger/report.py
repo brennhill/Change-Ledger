@@ -1,5 +1,5 @@
 """
-HTML report generation with SVG pie charts.
+HTML report generation with SVG pie charts and warning cards.
 
 All user-derived strings are HTML-escaped before interpolation.
 """
@@ -8,6 +8,12 @@ import math
 import re
 from datetime import datetime
 from html import escape
+from typing import Any
+
+# ── Thresholds (from research) ───────────────────────────────────────
+
+REWORK_RATE_THRESHOLD = 15  # % — flag above this
+LARGE_PR_FILES = 20  # files — proxy for 400+ lines when line count unavailable
 
 
 def polar_to_cart(cx, cy, r, angle_deg):
@@ -139,6 +145,60 @@ def render_warnings(warnings: list, repo_url: str = "") -> str:
     return f'<div class="warnings">{"".join(cards)}</div>'
 
 
+def generate_warnings(r: dict, rework_items: list | None = None) -> list[dict[str, Any]]:
+    """Generate warning cards based on thresholds from research."""
+    from .models import rework_summary
+
+    warnings: list[dict[str, Any]] = []
+
+    # Use canonical rework rate from rework_summary when items are available
+    if rework_items:
+        summary = rework_summary(rework_items)
+        rework_rate = summary["rework_rate"]
+        if rework_rate is not None and rework_rate > REWORK_RATE_THRESHOLD:
+            warnings.append({
+                "level": "high",
+                "title": f"Rework rate: {rework_rate:.0f}%",
+                "detail": f"Above {REWORK_RATE_THRESHOLD}% baseline. Check spec quality and gate coverage.",
+            })
+    else:
+        # Fallback when no rework items: use cost result merged/reverted
+        total = r["merged_prs"]
+        if total > 0:
+            rework_rate = r["reverted_prs"] / total * 100
+            if rework_rate > REWORK_RATE_THRESHOLD:
+                warnings.append({
+                    "level": "high",
+                    "title": f"Rework rate: {rework_rate:.0f}%",
+                    "detail": f"Above {REWORK_RATE_THRESHOLD}% baseline. Check spec quality and gate coverage.",
+                })
+
+    if rework_items:
+        oversized = [
+            item for item in rework_items
+            if item.get("files_changed", 0) > LARGE_PR_FILES
+        ]
+        reworked = [item for item in rework_items if item["status"] in ("rework", "fix")]
+
+        if oversized:
+            warnings.append({
+                "level": "medium",
+                "title": f"{len(oversized)} PRs touch {LARGE_PR_FILES}+ files",
+                "detail": "Review effectiveness drops sharply above 400 lines (SmartBear/Cisco). Consider enforcing a PR size limit in CI.",
+                "structured_items": oversized[:10],
+            })
+
+        if reworked:
+            warnings.append({
+                "level": "high",
+                "title": f"{len(reworked)} changes required rework or follow-up fixes",
+                "detail": "These changes were reverted, patched, or required fix commits within 14 days.",
+                "structured_items": reworked[:10],
+            })
+
+    return warnings
+
+
 def generate_html(r: dict, team_name: str = "", warnings: list | None = None, repo_url: str = "") -> str:
     svg = generate_svg(r)
     warnings = warnings or []
@@ -246,3 +306,19 @@ def generate_html(r: dict, team_name: str = "", warnings: list | None = None, re
 
 </body>
 </html>'''
+
+
+def write_html_report(
+    output_path: str,
+    results: dict,
+    rework_items: list | None = None,
+    team: str = "",
+    repo_url: str = "",
+) -> None:
+    """Generate warnings, render HTML, and write to file."""
+    from pathlib import Path
+
+    warnings = generate_warnings(results, rework_items)
+    html = generate_html(results, team, warnings, repo_url)
+    Path(output_path).write_text(html, encoding="utf-8")
+    print(f"  HTML report written to {output_path}")

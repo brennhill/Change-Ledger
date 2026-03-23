@@ -5,3 +5,7 @@ dist/
 build/
 .venv/
 uv.lock
+
+.coherence
+.coherence-data/
+.coverage

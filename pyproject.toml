@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "changeledger"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Cost per accepted change — the delivery metric no commercial tool computes"
 readme = "README.md"
 license = "Apache-2.0"
@@ -23,9 +23,66 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "bandit>=1.7",
+    "coverage>=7.5",
+]
+
 [project.scripts]
 changeledger = "changeledger.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/brennhill/change-ledger"
 Repository = "https://github.com/brennhill/change-ledger"
+
+[tool.setuptools.dynamic]
+version = {attr = "changeledger.__version__"}
+
+# ── Ruff ─────────────────────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",     # line length handled by formatter
+    "SIM108",   # ternary — readability preference
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["changeledger"]
+
+# ── Mypy ─────────────────────────────────────────────────────────────
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+# ── Bandit ───────────────────────────────────────────────────────────
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B404", "B603", "B607"]  # subprocess with fixed args is intentional
+
+# ── Coverage ─────────────────────────────────────────────────────────
+
+[tool.coverage.run]
+source = ["changeledger"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 35
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "if TYPE_CHECKING",
+]

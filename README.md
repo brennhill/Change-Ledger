@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.svg" alt="changeledger banner" width="100%"/>
+</p>
+
 # changeledger
 
 **Cost per accepted change — the delivery metric no commercial tool computes.**
@@ -43,6 +47,14 @@ cost per accepted change = (model + infra + human engineering + review + rework)
 **Accepted changes** = merged PRs minus reverts and hotfixes within a 14-day window. This is the denominator your dashboard is missing.
 
 **Human engineering** includes discussion, whiteboarding, spec writing, prompting, and context preparation — not just time at the keyboard. This is often the largest hidden cost.
+
+### LOC Normalization (default: on)
+
+By default, changeledger normalizes the denominator by lines changed. Instead of each PR counting as 1 unit, a PR contributes `max(1, ceil(lines_changed / 500))` units. This controls for size variance: a 1500-LOC PR counts as 3 units, not 1.
+
+The 500-LOC threshold aligns with CATCHRATE and UPFRONT sizing. Review effectiveness drops after ~400 LOC; 500 provides margin.
+
+Disable with `--no-normalize` for raw PR counts.
 
 ## Input Format
 
