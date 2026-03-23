@@ -38,9 +38,10 @@ Teams running all three tools should see:
 ### Alternatives Considered
 
 - **PR number as primary join key** — only works on GitHub repos with PR-based workflow. Internal git repos, GitLab, Bitbucket, and direct-push workflows have no PR numbers. Ticket IDs are universal.
-- **Shared rework detection library** — too much coupling. Each tool has domain-specific detection needs (CatchRate needs CI status, Upfront needs spec linkage). Aligned but independent detection is the right trade-off.
+- **Shared rework detection library** — too much coupling. Each tool has domain-specific detection needs (CatchRate needs CI status, Upfront needs spec linkage). Aligned but independent detection is the right trade-off. Signal detection patterns ARE shared via `delivery-gap-signals`.
 - **Central database** — overkill for CLI tools. JSON file exchange is sufficient.
 - **changeledger as orchestrator** — would make changeledger depend on both tools at runtime. File-based integration keeps tools independently installable.
+- **Each tool calls APIs directly** — replaced with Ports & Adapters architecture. See `delivery-gap-signals/ARCHITECTURE.md`. Tools receive `list[MergedChange]` from source adapters, never call `gh`/`glab`/`git` directly. One fetch per repo, shared across tools via `--from-prs` or the `delivery-gap scan` orchestrator.
 
 ---
 
