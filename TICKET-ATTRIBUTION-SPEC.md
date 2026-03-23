@@ -4,13 +4,15 @@
 
 ### Problem / Why Now
 
-The three tools (changeledger, Upfront, CatchRate) measure delivery health at the PR level. But management thinks in tickets — JIRA issues, Linear tasks, GitHub issues. The questions they ask are:
+The three tools (changeledger, Upfront, CatchRate) measure delivery health at the PR/commit level. But management thinks in tickets — JIRA issues, Linear tasks, GitHub issues. The questions they ask are:
 
 - "Which initiative produced the most rework?" (ticket → rework cost)
 - "Did the checkout epic have good specs?" (ticket → spec quality)
 - "Which team's tickets escape review most often?" (ticket → escape rate)
 
-PRs are the unit of work. Tickets are the unit of planning. The gap between them is the attribution problem.
+PRs/commits are the unit of work. Tickets are the unit of planning. The gap between them is the attribution problem.
+
+Ticket ID is also the **primary join key** across the three-tool ecosystem (see INTEGRATION-SPEC.md). It works on any git workflow — GitHub PRs, GitLab MRs, internal repos with direct pushes — as long as commit messages contain ticket references. PR numbers are a secondary join key, available only on GitHub/GitLab.
 
 ### The Attribution Model
 
@@ -326,10 +328,12 @@ A PR that only modifies config files excluded by `is_source_file` has `lines_cha
 
 ## Implementation Order
 
-1. **changeledger: include `pr_number` in rework results** — DONE (e96ff93)
-2. **Align ticket extraction patterns** across all three tools — changeledger already has the patterns, CatchRate and Upfront may need updates
-3. **changeledger: `--group-by ticket`** — pivot rework results by ticket ID, output `by_ticket` section
-4. **changeledger: `--from-upfront` / `--from-catchrate` with ticket join** — enrich ticket-level data with spec quality and classification
-5. **Upfront: add `ticket_ids` to effectiveness output** — currently not extracted for rework
-6. **CatchRate: add `ticket_ids` to per-PR output** — already extracted internally, just needs to be included in JSON output
+1. **changeledger: include `pr_number` and `ticket_ids` in rework results** — DONE (`pr_number` in e96ff93, `ticket_ids` already included)
+2. **Align ticket extraction patterns** across all three tools — changeledger has the patterns, CatchRate and Upfront may need updates to match
+3. **CatchRate: add `ticket_ids` to per-PR JSON output** — already extracted internally, just needs to be included in output
+4. **Upfront: add `ticket_ids` to coverage and effectiveness output** — currently extracted for coverage classification but not included in JSON
+5. **changeledger: `--group-by ticket`** — pivot rework results by ticket ID, output `by_ticket` section
+6. **changeledger: `--from-upfront` / `--from-catchrate` with ticket-first join** — join on ticket ID (primary), PR number (secondary), enrich ticket-level data with spec quality and classification
 7. **HTML report: ticket-level sections** — "Cost by Ticket", "Rework by Ticket", with Upfront/CatchRate enrichment columns
+
+Steps 1-4 ensure all three tools emit ticket IDs. Steps 5-7 consume them.
