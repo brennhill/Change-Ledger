@@ -9,6 +9,9 @@ description = "Cost per accepted change — the delivery metric no commercial to
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
+dependencies = [
+    "delivery-gap-signals @ git+https://github.com/brennhill/delivery-gap-signals.git",
+]
 authors = [
     { name = "Brenn Hill", email = "brennhill@gmail.com" },
 ]
