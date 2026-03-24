@@ -91,12 +91,19 @@ def cmd_cost(args):
 
 
 def _load_changes(args):
-    """Load MergedChange objects from --from-prs if provided."""
+    """Load MergedChange objects from --from-prs or --source adapter."""
     from_prs = getattr(args, "from_prs", None)
     if from_prs:
         from delivery_gap_signals.sources.file import fetch_changes
         return fetch_changes(from_prs)
-    return None
+
+    source = getattr(args, "source", None)
+    repo = getattr(args, "repo", None)
+    if source == "graphql" and repo:
+        from delivery_gap_signals.sources.github_graphql import fetch_changes
+        return fetch_changes(repo, getattr(args, "lookback", 90))
+
+    return None  # fall through to existing get_merges_local/get_merges_github
 
 
 def cmd_rework(args):
@@ -158,6 +165,8 @@ def main():
     rework_source = rework_opts.add_mutually_exclusive_group()
     rework_source.add_argument("--repo", help="GitHub repo (owner/repo). Omit for local git.")
     rework_source.add_argument("--from-prs", help="Read changes from JSON file (MergedChange format)")
+    rework_opts.add_argument("--source", choices=["rest", "graphql"], default=None,
+                            help="GitHub API method: rest (default, via gh pr list) or graphql (unlimited pagination)")
     rework_opts.add_argument("--window", type=positive_int_arg("window"), default=14, help="Observation window in days (default: 14)")
     rework_opts.add_argument("--lookback", type=positive_int_arg("lookback"), default=90, help="How far back to scan (default: 90 days)")
 
