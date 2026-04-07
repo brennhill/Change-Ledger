@@ -94,13 +94,13 @@ def _load_changes(args):
     """Load MergedChange objects from --from-prs or --source adapter."""
     from_prs = getattr(args, "from_prs", None)
     if from_prs:
-        from delivery_gap_signals.sources.file import fetch_changes
+        from .sources.file import fetch_changes
         return fetch_changes(from_prs)
 
     source = getattr(args, "source", None)
     repo = getattr(args, "repo", None)
     if source == "graphql" and repo:
-        from delivery_gap_signals.sources.github_graphql import fetch_changes
+        from .sources.github_graphql import fetch_changes
         return fetch_changes(repo, getattr(args, "lookback", 90))
 
     return None  # fall through to existing get_merges_local/get_merges_github

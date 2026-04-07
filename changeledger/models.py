@@ -74,7 +74,7 @@ class Commit:
 
     @classmethod
     def from_change(cls, change) -> Commit:
-        """Convert a delivery_gap_signals MergedChange to a Commit."""
+        """Convert a vendored source-adapter MergedChange to a Commit."""
         sha = change.merge_commit_sha or change.id
         return cls.build(
             sha=sha,
